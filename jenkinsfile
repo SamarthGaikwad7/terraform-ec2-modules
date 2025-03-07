@@ -1,0 +1,81 @@
+pipeline {
+    parameters {
+        booleanParam(name: 'autoApprove', defaultValue: false, description: 'Automatically apply Terraform changes?')
+        booleanParam(name: 'destroyInfra', defaultValue: false, description: 'Destroy AWS infrastructure?')
+    }
+
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    dir("terraform-ec2-modules") {
+                        git branch: 'main', credentialsId: 'e7377807-2072-469b-9841-8da309ddd290', url: 'https://github.com/AkhileshGurmit/Terraform_EC2_s3.git'
+                    }
+                }
+            }
+        }
+
+        stage('Plan') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    sh '''
+                        cd terraform-ec2-modules
+                        terraform init
+                        terraform plan -out=tfplan
+                        terraform show -no-color tfplan > tfplan.txt
+                    '''
+                }
+            }
+        }
+
+        stage('Approval') {
+            when {
+                not { equals expected: true, actual: params.autoApprove }
+            }
+            steps {
+                script {
+                    def plan = readFile 'terraform-ec2-modules/tfplan.txt'
+                    input message: "Do you want to apply the plan?",
+                          parameters: [text(name: 'Plan', description: 'Please review the Terraform plan', defaultValue: plan)]
+                }
+            }
+        }
+
+        stage('Apply') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    sh '''
+                        cd terraform-ec2-modules
+                        terraform apply -auto-approve
+                    '''
+                }
+            }
+        }
+
+        stage('Destroy') {
+            when {
+                equals expected: true, actual: params.destroyInfra
+            }
+            steps {
+                input message: "Are you sure you want to destroy the infrastructure?", ok: "Yes, Destroy"
+                withCredentials([
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    sh '''
+                        cd terraform-ec2-modules
+                        terraform destroy -auto-approve
+                    '''
+                }
+            }
+        }
+    }
+}
