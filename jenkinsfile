@@ -6,11 +6,15 @@ pipeline {
 
     agent any
 
+    environment {
+        TERRAFORM_DIR = "terraform-ec2-modules"
+    }
+
     stages {
         stage('Checkout') {
             steps {
                 script {
-                    dir("terraform-ec2-modules") {
+                    dir(TERRAFORM_DIR) {
                         git branch: 'main', credentialsId: 'e7377807-2072-469b-9841-8da309ddd290', url: 'https://github.com/SamarthGaikwad7/terraform-ec2-modules.git'
                     }
                 }
@@ -20,11 +24,13 @@ pipeline {
         stage('Plan') {
             steps {
                 withCredentials([
-                    string(credentialsId: 'aws-credentials', variable: 'AWS_ACCESS_KEY_ID'),
-                    string(credentialsId: 'aws-credentials', variable: 'AWS_SECRET_ACCESS_KEY')
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-credentials',
+                     accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
                 ]) {
                     sh '''
-                        cd terraform-ec2-modules
+                        cd ${TERRAFORM_DIR}
                         terraform init
                         terraform plan -out=tfplan
                         terraform show -no-color tfplan > tfplan.txt
@@ -39,7 +45,7 @@ pipeline {
             }
             steps {
                 script {
-                    def plan = readFile 'terraform-ec2-modules/tfplan.txt'
+                    def plan = readFile("${TERRAFORM_DIR}/tfplan.txt")
                     input message: "Do you want to apply the plan?",
                           parameters: [text(name: 'Plan', description: 'Please review the Terraform plan', defaultValue: plan)]
                 }
@@ -47,13 +53,21 @@ pipeline {
         }
 
         stage('Apply') {
+            when {
+                anyOf {
+                    equals expected: true, actual: params.autoApprove
+                    triggeredBy 'UserIdCause'
+                }
+            }
             steps {
                 withCredentials([
-                    string(credentialsId: 'aws-credentials', variable: 'AWS_ACCESS_KEY_ID'),
-                    string(credentialsId: 'aws-credentials', variable: 'AWS_SECRET_ACCESS_KEY')
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-credentials',
+                     accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
                 ]) {
                     sh '''
-                        cd terraform-ec2-modules
+                        cd ${TERRAFORM_DIR}
                         terraform apply -auto-approve
                     '''
                 }
@@ -67,11 +81,13 @@ pipeline {
             steps {
                 input message: "Are you sure you want to destroy the infrastructure?", ok: "Yes, Destroy"
                 withCredentials([
-                    string(credentialsId: 'aws-credentials', variable: 'AWS_ACCESS_KEY_ID'),
-                    string(credentialsId: 'aws-credentials', variable: 'AWS_SECRET_ACCESS_KEY')
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-credentials',
+                     accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
                 ]) {
                     sh '''
-                        cd terraform-ec2-modules
+                        cd ${TERRAFORM_DIR}
                         terraform destroy -auto-approve
                     '''
                 }
