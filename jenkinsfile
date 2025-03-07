@@ -11,7 +11,7 @@ pipeline {
             steps {
                 script {
                     dir("terraform-ec2-modules") {
-                        git branch: 'main', credentialsId: 'e7377807-2072-469b-9841-8da309ddd290', url: 'https://github.com/AkhileshGurmit/Terraform_EC2_s3.git'
+                        git branch: 'main', credentialsId: 'e7377807-2072-469b-9841-8da309ddd290', url: 'https://github.com/SamarthGaikwad7/terraform-ec2-modules.git'
                     }
                 }
             }
