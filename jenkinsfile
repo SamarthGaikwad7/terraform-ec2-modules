@@ -20,8 +20,8 @@ pipeline {
         stage('Plan') {
             steps {
                 withCredentials([
-                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
-                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                    string(credentialsId: 'aws-credentials', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-credentials', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                     sh '''
                         cd terraform-ec2-modules
@@ -49,8 +49,8 @@ pipeline {
         stage('Apply') {
             steps {
                 withCredentials([
-                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
-                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                    string(credentialsId: 'aws-credentials', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-credentials', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                     sh '''
                         cd terraform-ec2-modules
@@ -67,8 +67,8 @@ pipeline {
             steps {
                 input message: "Are you sure you want to destroy the infrastructure?", ok: "Yes, Destroy"
                 withCredentials([
-                    string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
-                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                    string(credentialsId: 'aws-credentials', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-credentials', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                     sh '''
                         cd terraform-ec2-modules
