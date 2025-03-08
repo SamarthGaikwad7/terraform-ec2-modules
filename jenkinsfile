@@ -2,62 +2,54 @@ pipeline {
     agent any
 
     environment {
-        AWS_CREDENTIALS = credentials('Aws_credentials') // Ensure this exists in Jenkins
+        AWS_ACCESS_KEY_ID = credentials('Aws_credentials')   // Store AWS credentials in Jenkins
+        AWS_SECRET_ACCESS_KEY = credentials('Aws_credentials')
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/SamarthGaikwad7/terraform-ec2-modules.git'
+                script {
+                    if (fileExists('terraform-ec2-modules.zip')) {
+                        sh 'rm -rf terraform-ec2-modules && mkdir terraform-ec2-modules'
+                        sh 'unzip terraform-ec2-modules.zip -d terraform-ec2-modules'
+                    } else {
+                        error "terraform-ec2-modules.zip not found"
+                    }
+                }
             }
         }
 
         stage('Initialize Terraform') {
             steps {
-                script {
-                    bat 'terraform init'
+                dir('terraform-ec2-modules') {
+                    sh 'terraform init'
                 }
             }
         }
 
-        stage('Plan') {
+        stage('Validate Terraform') {
             steps {
-                script {
-                    bat 'terraform plan -out=tfplan'
+                dir('terraform-ec2-modules') {
+                    sh 'terraform validate'
                 }
             }
         }
 
-        stage('Approval') {
+        stage('Plan Terraform') {
             steps {
-                input message: 'Do you want to apply the changes?', ok: 'Apply'
-            }
-        }
-
-        stage('Apply') {
-            steps {
-                script {
-                    bat 'terraform apply -auto-approve'
+                dir('terraform-ec2-modules') {
+                    sh 'terraform plan -out=tfplan'
                 }
             }
         }
 
-        stage('Destroy') {
-            when {
-                beforeAgent true
-                expression { return params.DESTROY }
-            }
+        stage('Apply Terraform') {
             steps {
-                script {
-                    bat 'terraform destroy -auto-approve'
+                dir('terraform-ec2-modules') {
+                    sh 'terraform apply -auto-approve tfplan'
                 }
             }
-        }
-    }
-
-    post {
-        always {
-            echo 'Pipeline execution completed.'
         }
     }
 }
