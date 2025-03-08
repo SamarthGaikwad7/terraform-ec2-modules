@@ -1,97 +1,63 @@
 pipeline {
-    parameters {
-        booleanParam(name: 'autoApprove', defaultValue: false, description: 'Automatically apply Terraform changes?')
-        booleanParam(name: 'destroyInfra', defaultValue: false, description: 'Destroy AWS infrastructure?')
-    }
-
     agent any
 
     environment {
-        TERRAFORM_DIR = "terraform-ec2-modules"
+        AWS_CREDENTIALS = credentials('Aws_credentials') // Ensure this exists in Jenkins
     }
 
     stages {
         stage('Checkout') {
             steps {
+                git branch: 'main', url: 'https://github.com/SamarthGaikwad7/terraform-ec2-modules.git'
+            }
+        }
+
+        stage('Initialize Terraform') {
+            steps {
                 script {
-                    dir(TERRAFORM_DIR) {
-                        git branch: 'main', credentialsId: 'Aws_credentials', url: 'https://github.com/SamarthGaikwad7/terraform-ec2-modules.git'
-                    }
+                    bat 'terraform init'
                 }
             }
         }
 
         stage('Plan') {
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'Aws_credentials',
-                     accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
-                ]) {
-                    sh '''
-                        cd ${TERRAFORM_DIR}
-                        terraform init
-                        terraform plan -out=tfplan
-                        terraform show -no-color tfplan > tfplan.txt
-                    '''
+                script {
+                    bat 'terraform plan -out=tfplan'
                 }
             }
         }
 
         stage('Approval') {
-            when {
-                not { equals expected: true, actual: params.autoApprove }
-            }
             steps {
-                script {
-                    def plan = readFile("${TERRAFORM_DIR}/tfplan.txt")
-                    input message: "Do you want to apply the plan?",
-                          parameters: [text(name: 'Plan', description: 'Please review the Terraform plan', defaultValue: plan)]
-                }
+                input message: 'Do you want to apply the changes?', ok: 'Apply'
             }
         }
 
         stage('Apply') {
-            when {
-                anyOf {
-                    equals expected: true, actual: params.autoApprove
-                    triggeredBy 'UserIdCause'
-                }
-            }
             steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'Aws_credentials',
-                     accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
-                ]) {
-                    sh '''
-                        cd ${TERRAFORM_DIR}
-                        terraform apply -auto-approve
-                    '''
+                script {
+                    bat 'terraform apply -auto-approve'
                 }
             }
         }
 
         stage('Destroy') {
             when {
-                equals expected: true, actual: params.destroyInfra
+                beforeAgent true
+                expression { return params.DESTROY }
             }
             steps {
-                input message: "Are you sure you want to destroy the infrastructure?", ok: "Yes, Destroy"
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'Aws_credentials',
-                     accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
-                ]) {
-                    sh '''
-                        cd ${TERRAFORM_DIR}
-                        terraform destroy -auto-approve
-                    '''
+                script {
+                    bat 'terraform destroy -auto-approve'
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline execution completed.'
         }
     }
 }
