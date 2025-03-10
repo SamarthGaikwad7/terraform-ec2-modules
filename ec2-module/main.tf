@@ -16,3 +16,11 @@ resource "aws_instance" "example01" {
     Name="Terraform-Instance-02"
   }
 }
+resource "aws_eip" "elastic_ip" {
+  instance = aws_instance.example.id
+  domain   = "vpc"
+
+  tags = {
+    Name = "Terraform-EIP-crazy-xyz"
+  }
+}
