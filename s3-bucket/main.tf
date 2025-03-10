@@ -23,7 +23,7 @@ resource "aws_s3_bucket_public_access_block" "example" {
 resource "aws_s3_object" "index_html" {
   bucket = aws_s3_bucket.example.id
   key    = "index.html"
-  source = "index.html"
+  source = "${path.module}/index.html"  # Ensure the file path is correct
   content_type = "text/html"
 }
 
