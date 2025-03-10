@@ -34,4 +34,10 @@ variable "ami_ids" {
 
   
 }
+variable "bucket_name" {
+    description = "Name of the S3 bucket"
+    type=string
+    default = "myterraforms3bucket1845"
+    
+}
 
