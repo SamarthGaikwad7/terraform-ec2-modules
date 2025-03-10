@@ -6,3 +6,7 @@ module "ec2" {
     instance_types = var.instance_types
   
 }
+module "s3" {
+  source      = "./s3-bucket"
+  bucket_name = var.bucket_name  
+}
